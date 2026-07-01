@@ -46,6 +46,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/doctors").permitAll()
+                        .requestMatchers("/api/doctors/profile").hasRole(roleName(AppConstants.ROLE_DOCTOR))
                         .requestMatchers(HttpMethod.GET, "/api/doctors/{id}").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/reviews/doctor/{id}").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/reviews/{id}/process").permitAll()
@@ -69,6 +70,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/appointments/{id}/cancel").hasRole(roleName(AppConstants.ROLE_PATIENT))
                         .requestMatchers(HttpMethod.POST, "/api/reviews").hasRole(roleName(AppConstants.ROLE_PATIENT))
                         .requestMatchers("/api/reviews/my").hasRole(roleName(AppConstants.ROLE_PATIENT))
+
+                        .requestMatchers(HttpMethod.GET, "/api/patients/{id}")
+                            .hasAnyRole(roleName(AppConstants.ROLE_DOCTOR), roleName(AppConstants.ROLE_ADMIN))
 
                         .anyRequest().authenticated()
                 )
