@@ -54,6 +54,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole(roleName(AppConstants.ROLE_ADMIN))
                         .requestMatchers("/api/analytics/platform").hasRole(roleName(AppConstants.ROLE_ADMIN))
 
+                        .requestMatchers(HttpMethod.GET, "/api/slots/doctor/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/slots/available").hasRole(roleName(AppConstants.ROLE_PATIENT))
                         .requestMatchers(HttpMethod.POST, "/api/slots").hasRole(roleName(AppConstants.ROLE_DOCTOR))
                         .requestMatchers(HttpMethod.DELETE, "/api/slots/**").hasRole(roleName(AppConstants.ROLE_DOCTOR))
                         .requestMatchers(HttpMethod.POST, "/api/consultations").hasRole(roleName(AppConstants.ROLE_DOCTOR))
@@ -68,6 +70,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/appointments").hasRole(roleName(AppConstants.ROLE_PATIENT))
                         .requestMatchers("/api/appointments/my").hasRole(roleName(AppConstants.ROLE_PATIENT))
                         .requestMatchers(HttpMethod.PUT, "/api/appointments/{id}/cancel").hasRole(roleName(AppConstants.ROLE_PATIENT))
+                        .requestMatchers(HttpMethod.GET, "/api/appointments/doctor").hasRole(roleName(AppConstants.ROLE_DOCTOR))
+                        .requestMatchers(HttpMethod.GET, "/api/appointments").hasRole(roleName(AppConstants.ROLE_ADMIN))
                         .requestMatchers(HttpMethod.POST, "/api/reviews").hasRole(roleName(AppConstants.ROLE_PATIENT))
                         .requestMatchers("/api/reviews/my").hasRole(roleName(AppConstants.ROLE_PATIENT))
 
