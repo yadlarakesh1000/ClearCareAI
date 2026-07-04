@@ -17,10 +17,13 @@ export function useDoctor(id) {
   });
 }
 
+// A missing profile returns 404 — the doctor dashboard uses that signal to show
+// the profile-creation form instead of the dashboard cards (don't retry a 404).
 export function useDoctorProfile() {
   return useQuery({
     queryKey: ['doctorProfile'],
     queryFn: () => api.get('/doctors/profile').then((r) => r.data.data),
+    retry: (count, err) => err?.response?.status !== 404 && count < 1,
   });
 }
 
