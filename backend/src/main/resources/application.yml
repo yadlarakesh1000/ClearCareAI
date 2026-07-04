@@ -26,3 +26,8 @@ app:
     base-url: ${OMNIDIM_BASE_URL:https://api.omnidim.io/v1}
   fastapi:
     base-url: ${FASTAPI_URL:http://localhost:8000}
+  voicereview:
+    initial-delay-days: ${VOICE_REVIEW_DELAY_DAYS:7}
+    retry-gap-hours: ${VOICE_REVIEW_RETRY_GAP_HOURS:1}
+    max-attempts: ${VOICE_REVIEW_MAX_ATTEMPTS:3}
+    check-interval-ms: ${VOICE_REVIEW_CHECK_INTERVAL_MS:600000}

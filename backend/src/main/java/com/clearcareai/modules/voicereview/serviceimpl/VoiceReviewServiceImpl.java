@@ -26,7 +26,9 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -49,6 +51,15 @@ public class VoiceReviewServiceImpl implements VoiceReviewService {
     @Value("${app.omnidim.base-url}")
     private String omnidimBaseUrl;
 
+    @Value("${app.voicereview.initial-delay-days}")
+    private long initialDelayDays;
+
+    @Value("${app.voicereview.retry-gap-hours}")
+    private long retryGapHours;
+
+    @Value("${app.voicereview.max-attempts}")
+    private int maxAttempts;
+
     @Override
     @Transactional
     public OmniDimCallResponse triggerVoiceReview(String email, VoiceReviewTriggerRequest request) {
@@ -69,8 +80,53 @@ public class VoiceReviewServiceImpl implements VoiceReviewService {
             throw new BadRequestException("A review already exists for this consultation");
         }
 
-        String patientPhone = consultation.getPatient().getUser().getPhone();
+        Review review = createPendingVoiceReview(consultation);
+        boolean callPlaced = placeCall(review);
 
+        return OmniDimCallResponse.builder()
+                .reviewId(review.getId())
+                .omnidimCallId(review.getOmnidimCallId())
+                .status(callPlaced ? review.getStatus().name() : "NOT_TRIGGERED")
+                .patientPhone(consultation.getPatient().getUser().getPhone())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void scheduleCallsForCompletedConsultations() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(initialDelayDays);
+        List<Consultation> dueConsultations =
+                consultationRepository.findByStatusAndUpdatedAtBefore(Consultation.Status.COMPLETED, cutoff);
+
+        for (Consultation consultation : dueConsultations) {
+            if (reviewRepository.existsByConsultationId(consultation.getId())) {
+                continue;
+            }
+            Review review = createPendingVoiceReview(consultation);
+            placeCall(review);
+            log.info("Scheduler created voice review {} for consultation {} (completed before {})",
+                    review.getId(), consultation.getId(), cutoff);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void retryUnansweredCalls() {
+        LocalDateTime retryCutoff = LocalDateTime.now().minusHours(retryGapHours);
+        List<Review> candidates = reviewRepository
+                .findByStatusAndSourceAndCallAttemptsLessThan(Review.Status.PENDING, Review.Source.VOICE, maxAttempts);
+
+        for (Review review : candidates) {
+            if (review.getLastCallAt() != null && review.getLastCallAt().isAfter(retryCutoff)) {
+                continue;
+            }
+            placeCall(review);
+            log.info("Scheduler retried voice review {} (attempt {}/{})",
+                    review.getId(), review.getCallAttempts(), maxAttempts);
+        }
+    }
+
+    private Review createPendingVoiceReview(Consultation consultation) {
         Review review = Review.builder()
                 .consultation(consultation)
                 .patient(consultation.getPatient())
@@ -78,41 +134,34 @@ public class VoiceReviewServiceImpl implements VoiceReviewService {
                 .status(Review.Status.PENDING)
                 .source(Review.Source.VOICE)
                 .isFlagged(false)
+                .callAttempts(0)
                 .build();
-        review = reviewRepository.save(review);
-
-        if (!StringUtils.hasText(omnidimApiKey)) {
-            log.warn("OmniDim API key not configured. Voice review call not triggered.");
-            return OmniDimCallResponse.builder()
-                    .reviewId(review.getId())
-                    .omnidimCallId(null)
-                    .status("NOT_TRIGGERED")
-                    .patientPhone(patientPhone)
-                    .build();
-        }
-
-        OmniDimCallResponse callResponse = callOmniDim(review, consultation, patientPhone);
-        if (callResponse == null) {
-            return OmniDimCallResponse.builder()
-                    .reviewId(review.getId())
-                    .omnidimCallId(null)
-                    .status("NOT_TRIGGERED")
-                    .patientPhone(patientPhone)
-                    .build();
-        }
-
-        review.setOmnidimCallId(callResponse.getOmnidimCallId());
-        reviewRepository.save(review);
-
-        return OmniDimCallResponse.builder()
-                .reviewId(review.getId())
-                .omnidimCallId(callResponse.getOmnidimCallId())
-                .status(review.getStatus().name())
-                .patientPhone(patientPhone)
-                .build();
+        return reviewRepository.save(review);
     }
 
-    private OmniDimCallResponse callOmniDim(Review review, Consultation consultation, String patientPhone) {
+    // Places one call attempt. Attempts are counted even when OmniDim is not configured
+    // or the API call fails, so the scheduler cannot loop forever on the same review.
+    private boolean placeCall(Review review) {
+        review.setCallAttempts(review.getCallAttempts() == null ? 1 : review.getCallAttempts() + 1);
+        review.setLastCallAt(LocalDateTime.now());
+
+        if (!StringUtils.hasText(omnidimApiKey)) {
+            log.warn("OmniDim API key not configured. Voice review call not triggered for review {}.", review.getId());
+            reviewRepository.save(review);
+            return false;
+        }
+
+        OmniDimCallResponse callResponse = callOmniDim(review);
+        if (callResponse != null && callResponse.getOmnidimCallId() != null) {
+            review.setOmnidimCallId(callResponse.getOmnidimCallId());
+        }
+        reviewRepository.save(review);
+        return callResponse != null;
+    }
+
+    private OmniDimCallResponse callOmniDim(Review review) {
+        Consultation consultation = review.getConsultation();
+
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("review_id", review.getId());
         metadata.put("consultation_id", consultation.getId());
@@ -123,7 +172,7 @@ public class VoiceReviewServiceImpl implements VoiceReviewService {
 
         Map<String, Object> body = new HashMap<>();
         body.put("agent_id", omnidimAgentId);
-        body.put("phone_number", "+91" + patientPhone);
+        body.put("phone_number", "+91" + consultation.getPatient().getUser().getPhone());
         body.put("metadata", metadata);
 
         HttpHeaders headers = new HttpHeaders();

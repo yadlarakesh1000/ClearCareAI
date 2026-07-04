@@ -62,6 +62,14 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         long monthlyAppointments = appointmentRepository.countByDoctorIdAndAppointmentDateBetween(
                 doctorId, currentMonth.atDay(1), currentMonth.atEndOfMonth());
 
+        // Last 6 months (oldest first) for the analytics bar chart, keyed "yyyy-MM"
+        Map<String, Long> monthlyBreakdown = new LinkedHashMap<>();
+        for (int i = 5; i >= 0; i--) {
+            YearMonth month = currentMonth.minusMonths(i);
+            monthlyBreakdown.put(month.toString(), appointmentRepository
+                    .countByDoctorIdAndAppointmentDateBetween(doctorId, month.atDay(1), month.atEndOfMonth()));
+        }
+
         List<Review> recent = reviewRepository.findTop5ByDoctorIdOrderByCreatedAtDesc(doctorId);
         List<ReviewResponseDto> recentReviews = recent.stream().map(reviewMapper::toResponseDto).toList();
 
@@ -75,6 +83,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 .averageRating(averageRating)
                 .sentimentBreakdown(sentimentBreakdown)
                 .monthlyAppointments(monthlyAppointments)
+                .monthlyBreakdown(monthlyBreakdown)
                 .recentReviews(recentReviews)
                 .build();
     }

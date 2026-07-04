@@ -60,7 +60,20 @@ public class ReviewServiceImpl implements ReviewService {
             throw new ReviewException("A review can only be submitted for a completed consultation");
         }
 
-        if (reviewRepository.existsByConsultationId(consultation.getId())) {
+        // A PENDING voice review (call not yet answered) does not block a text review:
+        // the patient answering by text converts it and stops further scheduled calls.
+        Review existing = reviewRepository.findByConsultationId(consultation.getId()).orElse(null);
+        if (existing != null) {
+            if (existing.getSource() == Review.Source.VOICE && existing.getStatus() == Review.Status.PENDING) {
+                existing.setRawTranscript(requestDto.getRawTranscript());
+                existing.setRating(requestDto.getRating());
+                existing.setSource(Review.Source.TEXT);
+                existing.setStatus(Review.Status.COMPLETED);
+
+                Review converted = reviewRepository.save(existing);
+                log.info("Converted pending voice review {} to a completed text review", converted.getId());
+                return reviewMapper.toResponseDto(converted);
+            }
             throw new ReviewException("A review already exists for this consultation");
         }
 

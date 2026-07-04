@@ -24,6 +24,9 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     Page<Review> findByIsFlaggedTrue(Pageable pageable);
 
+    List<Review> findByStatusAndSourceAndCallAttemptsLessThan(Review.Status status, Review.Source source,
+                                                               int maxAttempts);
+
     long countByIsFlaggedTrue();
 
     long countByDoctorIdAndStatus(Long doctorId, Review.Status status);

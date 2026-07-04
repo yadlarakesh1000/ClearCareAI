@@ -74,6 +74,13 @@ public class Review {
     @Column(name = "omnidim_call_id", length = 100)
     private String omnidimCallId;
 
+    @Column(name = "call_attempts")
+    @Builder.Default
+    private Integer callAttempts = 0;
+
+    @Column(name = "last_call_at")
+    private LocalDateTime lastCallAt;
+
     @Enumerated(EnumType.STRING)
     private TriState recovered;
 
