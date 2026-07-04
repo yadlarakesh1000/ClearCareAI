@@ -6,6 +6,13 @@
       "runtimeExecutable": "backend\\run-dev.cmd",
       "runtimeArgs": [],
       "port": 8080
+    },
+    {
+      "name": "frontend (Vite)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "frontend",
+      "port": 5173
     }
   ]
 }
