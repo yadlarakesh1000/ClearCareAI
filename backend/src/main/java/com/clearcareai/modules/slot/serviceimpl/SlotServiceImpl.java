@@ -1,7 +1,6 @@
 package com.clearcareai.modules.slot.serviceimpl;
 
 import com.clearcareai.exception.ResourceNotFoundException;
-import com.clearcareai.modules.appointment.entity.Appointment;
 import com.clearcareai.modules.appointment.repository.AppointmentRepository;
 import com.clearcareai.modules.auth.entity.User;
 import com.clearcareai.modules.auth.repository.UserRepository;
@@ -92,8 +91,11 @@ public class SlotServiceImpl implements SlotService {
         DayOfWeek dayOfWeek = date.getDayOfWeek();
         List<Slot> slots = slotRepository.findByDoctorIdAndDayOfWeekAndIsActiveTrue(doctorId, dayOfWeek);
 
+        // Cancelled appointments still block the slot for that date: the unique_appointment
+        // DB constraint covers all rows regardless of status, so offering the slot as
+        // available would let a booking attempt fail against the constraint.
         Set<Long> bookedSlotIds = appointmentRepository
-                .findByDoctorIdAndAppointmentDateAndStatusNot(doctorId, date, Appointment.Status.CANCELLED)
+                .findByDoctorIdAndAppointmentDate(doctorId, date)
                 .stream()
                 .map(appointment -> appointment.getSlot().getId())
                 .collect(Collectors.toSet());
