@@ -25,10 +25,13 @@ export function useDoctorProfile() {
 }
 
 // ── Patient Profile ───────────────────────────────────────────────────────────
+// A missing profile returns 404 (not an error to retry) — dashboards use that
+// signal to show the profile-creation form instead of the dashboard cards.
 export function usePatientProfile() {
   return useQuery({
     queryKey: ['patientProfile'],
     queryFn: () => api.get('/patients/profile').then((r) => r.data.data),
+    retry: (count, err) => err?.response?.status !== 404 && count < 1,
   });
 }
 
