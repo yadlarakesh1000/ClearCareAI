@@ -30,4 +30,18 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
                                                                     Appointment.Status status);
 
     boolean existsByDoctorIdAndSlotIdAndAppointmentDate(Long doctorId, Long slotId, LocalDate appointmentDate);
+
+    long countByDoctorId(Long doctorId);
+
+    long countByDoctorIdAndStatus(Long doctorId, Appointment.Status status);
+
+    long countByDoctorIdAndAppointmentDateBetween(Long doctorId, LocalDate startDate, LocalDate endDate);
+
+    long countByStatus(Appointment.Status status);
+
+    Page<Appointment> findByStatus(Appointment.Status status, Pageable pageable);
+
+    Page<Appointment> findByAppointmentDate(LocalDate appointmentDate, Pageable pageable);
+
+    Page<Appointment> findByStatusAndAppointmentDate(Appointment.Status status, LocalDate appointmentDate, Pageable pageable);
 }

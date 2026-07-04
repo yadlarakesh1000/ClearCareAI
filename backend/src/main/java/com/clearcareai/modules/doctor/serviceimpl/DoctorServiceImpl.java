@@ -11,6 +11,8 @@ import com.clearcareai.modules.doctor.mapper.DoctorMapper;
 import com.clearcareai.modules.doctor.repository.DoctorRepository;
 import com.clearcareai.modules.doctor.service.DoctorService;
 import com.clearcareai.modules.doctor.validator.DoctorValidator;
+import com.clearcareai.modules.review.entity.Review;
+import com.clearcareai.modules.review.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -29,6 +31,7 @@ public class DoctorServiceImpl implements DoctorService {
 
     private final DoctorRepository doctorRepository;
     private final UserRepository userRepository;
+    private final ReviewRepository reviewRepository;
     private final DoctorMapper doctorMapper;
     private final DoctorValidator doctorValidator;
 
@@ -46,7 +49,7 @@ public class DoctorServiceImpl implements DoctorService {
         Doctor saved = doctorRepository.save(doctor);
         log.info("Created doctor profile for user: {}", email);
 
-        return toResponseDtoWithDefaults(saved);
+        return toResponseDtoWithRatings(saved);
     }
 
     @Override
@@ -58,7 +61,7 @@ public class DoctorServiceImpl implements DoctorService {
                 : doctorRepository.findAll(pageable);
 
         List<DoctorResponseDto> content = doctorPage.getContent().stream()
-                .map(this::toResponseDtoWithDefaults)
+                .map(this::toResponseDtoWithRatings)
                 .toList();
 
         return new PagedResponse<>(
@@ -76,7 +79,7 @@ public class DoctorServiceImpl implements DoctorService {
         Doctor doctor = doctorRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor", "id", id));
 
-        return toResponseDtoWithDefaults(doctor);
+        return toResponseDtoWithRatings(doctor);
     }
 
     @Override
@@ -85,7 +88,7 @@ public class DoctorServiceImpl implements DoctorService {
         Doctor doctor = doctorRepository.findByUserId(user.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor profile not found for user: " + email));
 
-        return toResponseDtoWithDefaults(doctor);
+        return toResponseDtoWithRatings(doctor);
     }
 
     @Override
@@ -100,7 +103,7 @@ public class DoctorServiceImpl implements DoctorService {
         Doctor saved = doctorRepository.save(doctor);
         log.info("Updated doctor profile for user: {}", email);
 
-        return toResponseDtoWithDefaults(saved);
+        return toResponseDtoWithRatings(saved);
     }
 
     private User getUserByEmail(String email) {
@@ -108,10 +111,11 @@ public class DoctorServiceImpl implements DoctorService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
     }
 
-    private DoctorResponseDto toResponseDtoWithDefaults(Doctor doctor) {
+    private DoctorResponseDto toResponseDtoWithRatings(Doctor doctor) {
         DoctorResponseDto dto = doctorMapper.toResponseDto(doctor);
-        dto.setAverageRating(0.0);
-        dto.setTotalReviews(0L);
+        Double averageRating = reviewRepository.findAverageRatingByDoctorId(doctor.getId());
+        dto.setAverageRating(averageRating == null ? 0.0 : Math.round(averageRating * 10.0) / 10.0);
+        dto.setTotalReviews(reviewRepository.countByDoctorIdAndStatus(doctor.getId(), Review.Status.COMPLETED));
         return dto;
     }
 }
