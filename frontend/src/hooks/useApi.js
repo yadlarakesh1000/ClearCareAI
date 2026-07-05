@@ -60,17 +60,19 @@ export function useAvailableSlots(doctorId, date) {
 }
 
 // ── Appointments ──────────────────────────────────────────────────────────────
-export function useMyAppointments(params = {}) {
+export function useMyAppointments(params = {}, options = {}) {
   return useQuery({
     queryKey: ['myAppointments', params],
     queryFn: () => api.get('/appointments/my', { params }).then((r) => r.data.data),
+    ...options,
   });
 }
 
-export function useDoctorAppointments(params = {}) {
+export function useDoctorAppointments(params = {}, options = {}) {
   return useQuery({
     queryKey: ['doctorAppointments', params],
     queryFn: () => api.get('/appointments/doctor', { params }).then((r) => r.data.data),
+    ...options,
   });
 }
 
