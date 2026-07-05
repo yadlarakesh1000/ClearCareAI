@@ -76,11 +76,13 @@ public class SlotServiceImpl implements SlotService {
 
     @Override
     public List<SlotResponseDto> getSlotsByDoctor(Long doctorId, String dayOfWeek) {
+        // Only active slots — deleted slots are soft-deleted (isActive=false) and must
+        // not be returned to the slot management list or the public doctor profile.
         List<Slot> slots;
         if (dayOfWeek != null && !dayOfWeek.isBlank()) {
-            slots = slotRepository.findByDoctorIdAndDayOfWeek(doctorId, DayOfWeek.valueOf(dayOfWeek));
+            slots = slotRepository.findByDoctorIdAndDayOfWeekAndIsActiveTrue(doctorId, DayOfWeek.valueOf(dayOfWeek));
         } else {
-            slots = slotRepository.findByDoctorId(doctorId);
+            slots = slotRepository.findByDoctorIdAndIsActiveTrue(doctorId);
         }
 
         return slots.stream().map(slotMapper::toResponseDto).toList();

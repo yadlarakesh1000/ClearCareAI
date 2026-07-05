@@ -76,13 +76,27 @@ export function useDoctorAppointments(params = {}, options = {}) {
   });
 }
 
+// ── Appointments (single) ──────────────────────────────────────────────────────
+export function useAppointment(id, options = {}) {
+  return useQuery({
+    queryKey: ['appointment', id],
+    queryFn: () => api.get(`/appointments/${id}`).then((r) => r.data.data),
+    enabled: !!id,
+    ...options,
+  });
+}
+
 // ── Consultations ─────────────────────────────────────────────────────────────
-export function useConsultationByAppointment(appointmentId) {
+// A consultation may not exist yet for an appointment — that returns 404, which is
+// a normal "not started" signal, so don't retry it.
+export function useConsultationByAppointment(appointmentId, options = {}) {
   return useQuery({
     queryKey: ['consultation', 'appointment', appointmentId],
     queryFn: () =>
       api.get(`/consultations/appointment/${appointmentId}`).then((r) => r.data.data),
     enabled: !!appointmentId,
+    retry: (count, err) => err?.response?.status !== 404 && count < 1,
+    ...options,
   });
 }
 

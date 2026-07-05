@@ -102,7 +102,9 @@ export default function SlotManagementPage() {
   const deleteErrorMsg =
     deleteMutation.error?.response?.data?.message || deleteMutation.error?.message;
 
-  const slotList = slots ?? [];
+  // Delete is a soft delete (isActive=false); the doctor-slots endpoint still returns
+  // those rows, so hide deactivated slots from the management list.
+  const slotList = (slots ?? []).filter((s) => s.isActive !== false);
 
   return (
     <div className="p-6 md:p-8 max-w-4xl mx-auto">
