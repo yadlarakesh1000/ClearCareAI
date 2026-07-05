@@ -26,6 +26,20 @@ export function formatDate(value) {
   });
 }
 
+// Backend LocalDateTime serializes as "yyyy-MM-ddTHH:mm:ss". Show "15 Jul 2026, 10:30".
+export function formatDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 // The day-of-week (MONDAY) for a given "yyyy-MM-dd" date — used to match a slot's day.
 export function dayOfWeekFromDate(value) {
   if (!value) return '';

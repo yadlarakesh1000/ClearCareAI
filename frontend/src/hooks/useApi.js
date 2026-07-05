@@ -134,6 +134,13 @@ export function usePlatformAnalytics() {
 }
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
+export function useAdminDashboard() {
+  return useQuery({
+    queryKey: ['adminDashboard'],
+    queryFn: () => api.get('/admin/dashboard').then((r) => r.data.data),
+  });
+}
+
 export function useAdminUsers(params = {}) {
   return useQuery({
     queryKey: ['adminUsers', params],
