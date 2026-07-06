@@ -159,21 +159,27 @@ public class VoiceReviewServiceImpl implements VoiceReviewService {
         return callResponse != null;
     }
 
+    // Places the outbound call via OmniDim's real dispatch API:
+    //   POST {base-url}/calls/dispatch  (base-url = https://backend.omnidim.io/api/v1)
+    //   Body: agent_id (int), to_number (+country), call_context (echoed metadata)
+    //   Auth: Authorization: Bearer {api-key}
     private OmniDimCallResponse callOmniDim(Review review) {
         Consultation consultation = review.getConsultation();
 
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("review_id", review.getId());
-        metadata.put("consultation_id", consultation.getId());
-        metadata.put("patient_name", consultation.getPatient().getUser().getFirstName() + " "
+        // call_context is passed through to the agent and echoed on the webhook, so we
+        // stash our own ids here to correlate the completed call back to this review.
+        Map<String, Object> callContext = new HashMap<>();
+        callContext.put("review_id", review.getId());
+        callContext.put("consultation_id", consultation.getId());
+        callContext.put("patient_name", consultation.getPatient().getUser().getFirstName() + " "
                 + consultation.getPatient().getUser().getLastName());
-        metadata.put("doctor_name", consultation.getDoctor().getUser().getFirstName() + " "
+        callContext.put("doctor_name", consultation.getDoctor().getUser().getFirstName() + " "
                 + consultation.getDoctor().getUser().getLastName());
 
         Map<String, Object> body = new HashMap<>();
-        body.put("agent_id", omnidimAgentId);
-        body.put("phone_number", "+91" + consultation.getPatient().getUser().getPhone());
-        body.put("metadata", metadata);
+        body.put("agent_id", parseAgentId(omnidimAgentId));
+        body.put("to_number", "+91" + consultation.getPatient().getUser().getPhone());
+        body.put("call_context", callContext);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -182,10 +188,22 @@ public class VoiceReviewServiceImpl implements VoiceReviewService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
         try {
-            return restTemplate.postForObject(omnidimBaseUrl + "/calls", entity, OmniDimCallResponse.class);
+            OmniDimCallResponse response =
+                    restTemplate.postForObject(omnidimBaseUrl + "/calls/dispatch", entity, OmniDimCallResponse.class);
+            log.info("OmniDim dispatch response for review {}: {}", review.getId(), response);
+            return response;
         } catch (RestClientException ex) {
             log.error("Failed to trigger OmniDim voice call for review {}: {}", review.getId(), ex.getMessage());
             return null;
+        }
+    }
+
+    // OmniDim's SDK requires agent_id as an integer; send it numerically when possible.
+    private Object parseAgentId(String agentId) {
+        try {
+            return Long.parseLong(agentId.trim());
+        } catch (NumberFormatException ex) {
+            return agentId;
         }
     }
 

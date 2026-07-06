@@ -1,0 +1,5 @@
+@echo off
+REM Copy this file to run-dev.local.cmd and fill in your real keys.
+REM run-dev.local.cmd is git-ignored so your secrets never get committed.
+set "OMNIDIM_API_KEY=your-omnidim-api-key"
+set "OMNIDIM_AGENT_ID=your-omnidim-agent-id"

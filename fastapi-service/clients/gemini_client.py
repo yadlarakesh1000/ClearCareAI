@@ -1,6 +1,8 @@
 """Gemini client — grammar correction, summarization, sentiment, consistency.
 
-Uses the google-generativeai SDK with model gemini-1.5-flash.
+Uses the google-generativeai SDK. The model name comes from settings
+(GEMINI_MODEL, default gemini-2.0-flash) because Google retires older names such
+as the original gemini-1.5-flash referenced in COMMANDO.md.
 
 If GEMINI_API_KEY is not configured (unset or the placeholder
 "your-gemini-api-key"), the functions return mock responses instead of calling
@@ -13,7 +15,7 @@ import google.generativeai as genai
 
 from config import logger, settings
 
-MODEL_NAME = "gemini-1.5-flash"
+MODEL_NAME = settings.gemini_model
 
 # A key is "configured" only if it is set and not the placeholder value.
 _KEY_CONFIGURED = bool(settings.gemini_api_key) and settings.gemini_api_key != "your-gemini-api-key"

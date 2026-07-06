@@ -4,6 +4,7 @@ Flow: receive webhook -> look up review by call_id via Spring Boot -> extract
 variables (treat "NA" as null) -> Gemini grammar/summary/sentiment -> push the
 processed review back to Spring Boot.
 """
+import math
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
@@ -26,40 +27,62 @@ def _clean(value) -> Optional[str]:
 
 
 def _to_int(value) -> Optional[int]:
-    """Parse an integer rating, treating NA/blank/non-numeric as None."""
+    """Parse a 1-5 rating.
+
+    Accepts whole numbers or decimals (e.g. a patient saying "4.5"), rounds to
+    the nearest whole number (ties round up), and clamps to the 1-5 range so the
+    integer rating column always gets a valid value. NA/blank/non-numeric -> None.
+    """
     cleaned = _clean(value)
     if cleaned is None:
         return None
     try:
-        return int(cleaned)
+        number = float(cleaned)
     except ValueError:
-        logger.warning("Could not parse rating '%s' as int; ignoring.", cleaned)
+        logger.warning("Could not parse rating '%s' as a number; ignoring.", cleaned)
         return None
+    rating = int(math.floor(number + 0.5))  # round half up
+    return max(1, min(5, rating))
 
 
 @router.post("/webhook/omnidim")
 async def omnidim_webhook(payload: OmniDimWebhookPayload):
     """Receive an OmniDim call-completed webhook and process the review."""
+    report = payload.call_report
+
+    # The backend stores the dispatch id, which OmniDim echoes here as call_request_id.
+    # Try that first; fall back to call_id for robustness. Ids arrive as integers, so
+    # normalise to string for the Spring Boot lookup (omnidim_call_id is a string).
+    candidate_ids = []
+    if payload.call_request_id is not None:
+        candidate_ids.append(str(payload.call_request_id))
+    candidate_ids.append(str(payload.call_id))
+
     logger.info(
-        "Received OmniDim webhook: call_id=%s status=%s duration=%ss",
+        "Received OmniDim webhook: call_request_id=%s call_id=%s status=%s duration=%ss",
+        payload.call_request_id,
         payload.call_id,
-        payload.status,
-        payload.duration_seconds,
+        payload.call_status,
+        payload.call_duration,
     )
 
     # 1. Find the review this call belongs to.
-    review = await spring_client.get_review_by_omnidim_call_id(payload.call_id)
+    review = None
+    for cid in candidate_ids:
+        review = await spring_client.get_review_by_omnidim_call_id(cid)
+        if review:
+            break
     if not review:
-        logger.error("No review found for call_id '%s'.", payload.call_id)
+        logger.error("No review found for OmniDim call ids %s.", candidate_ids)
         raise HTTPException(
             status_code=404,
-            detail=f"No review found for call_id '{payload.call_id}'",
+            detail=f"No review found for OmniDim call ids {candidate_ids}",
         )
     review_id = review.get("id")
 
     # 2. Extract transcript and OmniDim variables (NA -> null).
-    transcript = payload.transcript or ""
-    variables = payload.extracted_variables or {}
+    transcript = (report.full_conversation if report else None) or ""
+    variables = (report.extracted_variables if report else None) or {}
     rating = _to_int(variables.get("rating"))
     recovered = _clean(variables.get("recovered"))
     recommend_doctor = _clean(variables.get("recommend_doctor"))

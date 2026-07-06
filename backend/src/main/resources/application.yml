@@ -21,9 +21,11 @@ app:
     expiration: ${JWT_EXPIRATION:86400000}
     refresh-expiration: ${REFRESH_TOKEN_EXPIRATION:604800000}
   omnidim:
-    api-key: ${OMNIDIM_API_KEY:}
-    agent-id: ${OMNIDIM_AGENT_ID:}
-    base-url: ${OMNIDIM_BASE_URL:https://api.omnidim.io/v1}
+    # Replace PASTE_YOUR_OMNIDIM_API_KEY_HERE below with your real OmniDim API key.
+    # (The value after the colon is the default used when no env var is set.)
+    api-key: ${OMNIDIM_API_KEY:PASTE_YOUR_OMNIDIM_API_KEY_HERE}
+    agent-id: ${OMNIDIM_AGENT_ID:208102}
+    base-url: ${OMNIDIM_BASE_URL:https://backend.omnidim.io/api/v1}
   fastapi:
     base-url: ${FASTAPI_URL:http://localhost:8000}
   voicereview:
